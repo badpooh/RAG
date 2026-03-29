@@ -5,8 +5,11 @@ echo ============================================
 
 cd /d "%~dp0"
 
-REM === Set your conda python path here ===
-set PYTHON_CMD=C:\Users\ADMIN\miniconda3\envs\VisionTest\python.exe
+REM === Set your conda python path here / company ===
+REM set PYTHON_CMD=C:\Users\ADMIN\miniconda3\envs\VisionTest\python.exe
+
+REM === Set your conda python path here / home ===
+set PYTHON_CMD=C:\Users\JOYS\miniconda3\envs\vision\python.exe
 
 echo Python: %PYTHON_CMD%
 echo.
@@ -21,6 +24,10 @@ echo Starting RAG Server...
 echo (Model loading takes 30s - 1min)
 echo.
 
-%PYTHON_CMD% scripts/rag_server.py --data_dir data --port 5000 --device cpu --llm_model cyankiwi/Qwen3.5-4B-AWQ-4bit
+REM === VLLM ===
+REM %PYTHON_CMD% scripts/rag_server_ollama.py --data_dir data --port 5000 --device cpu --llm_model cyankiwi/Qwen3.5-4B-AWQ-4bit
+
+REM === Ollama ===
+%PYTHON_CMD% scripts/rag_server_ollama.py --data_dir data --port 5000 --device cpu --llm_model qwen3.5:4b
 
 pause

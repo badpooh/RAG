@@ -482,7 +482,7 @@
         let searchController = null;
 
         // RAG API 서버 주소 (Python FastAPI)
-        const RAG_API = 'http://10.10.26.101:5000';
+        const RAG_API = 'http://localhost:5000';
 
         // ── DB 목록 로드 ──
         async function loadDatabases() {
@@ -584,20 +584,19 @@
                                     <span class="result-title">${escapeHtml(r.title)}</span>
                                     ${r.score !== null ? `<span class="result-score">Score: ${r.score}</span>` : ''}
                                 </div>
-                                <div class="result-content">${escapeHtml(r.content)}</div>
+                                <div class="result-content">${escapeHtml(r.full_content || r.content)}</div>
                             </div>
                         `).join('');
                     }
 
-                    // 1차 선별 결과
+                    // 1차 선별 결과 (요약만)
                     html += `<div class="results-section-title">📄 1차 선별 결과 (${data.count}건)</div>`;
                     html += data.results.map(r => `
                         <div class="result-card">
                             <div class="result-header">
-                                <span class="result-title">${escapeHtml(r.title)}</span>
+                                <span class="result-title">${escapeHtml(r.summary || r.title)}</span>
                                 ${r.score !== null ? `<span class="result-score">Score: ${r.score}</span>` : ''}
                             </div>
-                            <div class="result-content">${escapeHtml(r.content)}</div>
                         </div>
                     `).join('');
                 } else {
@@ -618,10 +617,13 @@
 
         // ── 검색 중지 ──
         function stopSearch() {
+            // 1. 브라우저 fetch 취소
             if (searchController) {
                 searchController.abort();
                 searchController = null;
             }
+            // 2. RAG 서버에 LLM 중지 요청
+            fetch(`${RAG_API}/api/stop`).catch(() => {});
         }
 
         // 탭 닫기/이동 시 자동 취소
