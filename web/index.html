@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROOTECH Search</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        /* 초기 상태: 화면 정중앙 */
+        .header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            transition: min-height 0.3s ease;
+        }
+
+        /* 검색 후: 상단 고정 바 */
+        body.has-results .header {
+            min-height: auto;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: #1a1a2e;
+            border-bottom: 1px solid #2a2a4a;
+            padding: 16px 20px 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        /* ── 로고 ── */
+        .logo {
+            font-size: 72px;
+            font-weight: 700;
+            letter-spacing: -2px;
+            margin-bottom: 36px;
+            background: linear-gradient(135deg, #00d2ff, #7b2ff7, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            user-select: none;
+        }
+
+        body.has-results .logo {
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+
+        /* ── 검색 바 행 ── */
+        .search-row {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            max-width: 700px;
+            gap: 8px;
+            padding-left: 150px;
+        }
+
+        .search-bar {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            background: #16213e;
+            border: 2px solid #333;
+            border-radius: 28px;
+            padding: 6px 16px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .search-bar:focus-within {
+            border-color: #7b2ff7;
+            box-shadow: 0 0 12px rgba(123, 47, 247, 0.3);
+        }
+
+        .search-icon {
+            width: 18px;
+            height: 18px;
+            fill: #888;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .search-input {
+            flex: 1;
+            background: none;
+            border: none;
+            outline: none;
+            color: #e0e0e0;
+            font-size: 15px;
+            padding: 8px 0;
+        }
+
+        .search-input::placeholder {
+            color: #666;
+        }
+
+        /* ── DB 선택 드롭다운 ── */
+        .db-selector {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .db-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #7b2ff7;
+            border: none;
+            border-radius: 20px;
+            color: white;
+            padding: 10px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .db-toggle:hover {
+            background: #6a1fe0;
+        }
+
+        .db-toggle .arrow {
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+
+        .db-toggle.open .arrow {
+            transform: rotate(180deg);
+        }
+
+        .db-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            background: #16213e;
+            border: 1px solid #333;
+            border-radius: 12px;
+            min-width: 220px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 100;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        .db-dropdown.show {
+            display: block;
+        }
+
+        .db-option {
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #ccc;
+            transition: background 0.15s;
+        }
+
+        .db-option:hover {
+            background: #1a1a40;
+        }
+
+        .db-option.selected {
+            color: #7b2ff7;
+            font-weight: 600;
+        }
+
+        .db-option:first-child {
+            border-radius: 12px 12px 0 0;
+        }
+
+        .db-option:last-child {
+            border-radius: 0 0 12px 12px;
+        }
+
+        .db-empty {
+            padding: 16px;
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+        }
+
+        /* ── 옵션 행 (모드 + 검색 버튼) ── */
+        .options-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        body.has-results .options-row {
+            margin-top: 10px;
+        }
+
+        .mode-toggle {
+            display: flex;
+            background: #16213e;
+            border: 1px solid #333;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .mode-btn {
+            padding: 8px 16px;
+            font-size: 13px;
+            border: none;
+            background: none;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .mode-btn.active {
+            background: #7b2ff7;
+            color: white;
+        }
+
+        .mode-btn:hover:not(.active) {
+            color: #ccc;
+            background: #1a1a40;
+        }
+
+        .search-btn {
+            background: #7b2ff7;
+            border: none;
+            border-radius: 20px;
+            color: white;
+            padding: 8px 24px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .search-btn:hover {
+            background: #6a1fe0;
+        }
+
+        /* 검색 결과 영역 */
+        .results-area {
+            display: none;
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        body.has-results .results-area {
+            display: block;
+            padding-top: 200px;
+        }
+
+        .results-info {
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 16px;
+        }
+
+        /* ── LLM 답변 카드 ── */
+        .llm-card {
+            background: linear-gradient(135deg, #1a1a40, #16213e);
+            border: 1px solid #7b2ff7;
+            border-radius: 14px;
+            padding: 20px 24px;
+            margin-bottom: 20px;
+        }
+
+        .llm-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: #7b2ff7;
+            font-weight: 600;
+        }
+
+        .llm-card-body {
+            font-size: 15px;
+            line-height: 1.7;
+            color: #ddd;
+        }
+
+        .llm-card-body a {
+            color: #00d2ff;
+        }
+
+        /* ── 마크다운 표 스타일 ── */
+        .llm-card-body table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 14px;
+        }
+
+        .llm-card-body th {
+            background: #7b2ff7;
+            color: white;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .llm-card-body td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #2a2a4a;
+            color: #ccc;
+        }
+
+        .llm-card-body tr:hover td {
+            background: #1a1a40;
+        }
+
+        .llm-card-body p {
+            margin: 8px 0;
+        }
+
+        .llm-card-body strong {
+            color: #00d2ff;
+        }
+
+        .llm-card-body h3 {
+            color: #7b2ff7;
+            margin: 16px 0 8px;
+            font-size: 15px;
+        }
+
+        /* ── 검색 결과 카드 ── */
+        .results-section-title {
+            font-size: 13px;
+            color: #7b2ff7;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .result-card {
+            background: #16213e;
+            border: 1px solid #2a2a4a;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            transition: border-color 0.2s;
+        }
+
+        .result-card:hover {
+            border-color: #7b2ff7;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .result-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #00d2ff;
+        }
+
+        .result-score {
+            font-size: 12px;
+            color: #888;
+            background: #1a1a2e;
+            padding: 3px 10px;
+            border-radius: 10px;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+
+        .result-content {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #ccc;
+            word-break: break-word;
+        }
+
+        /* ── 상태 메시지 ── */
+        .status-msg {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 15px;
+        }
+
+        .error-msg {
+            color: #ff6b6b;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #333;
+            border-top-color: #7b2ff7;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .footer {
+            text-align: center;
+            padding: 24px;
+            color: #444;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ── 헤더 (로고 + 검색창 + 옵션) ── -->
+    <div class="header" id="header">
+        <div class="logo">ROOTECH</div>
+
+        <div class="search-row">
+            <div class="search-bar">
+                <svg class="search-icon" viewBox="0 0 24 24">
+                    <path
+                        d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                </svg>
+                <input type="text" class="search-input" id="searchInput" placeholder="검색어를 입력하세요..." autocomplete="off">
+            </div>
+
+            <div class="db-selector">
+                <button class="db-toggle" id="dbToggle" onclick="toggleDropdown()">
+                    <span id="dbLabel">DB 선택</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="db-dropdown" id="dbDropdown"></div>
+            </div>
+        </div>
+
+        <div class="options-row">
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="modeFull" onclick="setMode('full')">검색 + AI 답변</button>
+                <button class="mode-btn" id="modeRetrieve" onclick="setMode('retrieve')">검색만</button>
+            </div>
+            <button class="search-btn" onclick="doSearch()">검색</button>
+            <button class="search-btn" onclick="stopSearch()" style="background:#e57373;">중지</button>
+        </div>
+        <div style="margin-top: 12px; font-size: 12px; color: #e57373; text-align: center;">
+            💡 검색 팁: "버그 개수 알려줘" 같은 집계 질문은 지원하지 않습니다.
+        </div>
+    </div>
+
+    <!-- ── 검색 결과 ── -->
+    <div class="results-area" id="resultsArea"></div>
+
+    <!-- ── 푸터 ── -->
+    <div class="footer">ROOTECH Search Engine — Powered by RAG</div>
+
+    <script>
+        let selectedDb = '';
+        let databases = [];
+        let searchMode = 'full';
+        let searchController = null;
+
+        // RAG API 서버 주소 (Python FastAPI)
+        const RAG_API = 'http://10.10.26.101:5000';
+
+        // ── DB 목록 로드 ──
+        async function loadDatabases() {
+            try {
+                const res = await fetch(`${RAG_API}/api/databases`);
+                databases = await res.json();
+                renderDropdown();
+                if (databases.length === 1) selectDb(databases[0]);
+            } catch (e) {
+                console.error('DB 목록 로드 실패:', e);
+            }
+        }
+
+        function renderDropdown() {
+            const dropdown = document.getElementById('dbDropdown');
+            if (databases.length === 0) {
+                dropdown.innerHTML = '<div class="db-empty">📁 data 폴더에 인덱스 폴더를 추가해주세요</div>';
+                return;
+            }
+            dropdown.innerHTML = databases.map(db =>
+                `<div class="db-option ${db === selectedDb ? 'selected' : ''}"
+                    onclick="selectDb('${db}')">${db}</div>`
+            ).join('');
+        }
+
+        function selectDb(dbName) {
+            selectedDb = dbName;
+            document.getElementById('dbLabel').textContent = dbName;
+            document.getElementById('dbDropdown').classList.remove('show');
+            document.getElementById('dbToggle').classList.remove('open');
+            renderDropdown();
+        }
+
+        function toggleDropdown() {
+            document.getElementById('dbDropdown').classList.toggle('show');
+            document.getElementById('dbToggle').classList.toggle('open');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.db-selector')) {
+                document.getElementById('dbDropdown').classList.remove('show');
+                document.getElementById('dbToggle').classList.remove('open');
+            }
+        });
+
+        // ── 모드 토글 ──
+        function setMode(mode) {
+            searchMode = mode;
+            document.getElementById('modeFull').classList.toggle('active', mode === 'full');
+            document.getElementById('modeRetrieve').classList.toggle('active', mode === 'retrieve');
+        }
+
+        // ── 검색 ──
+        async function doSearch() {
+            // 기존 검색 취소
+            if (searchController) searchController.abort();
+            searchController = new AbortController();
+
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) { alert('검색어를 입력해주세요.'); return; }
+            if (!selectedDb) { alert('데이터베이스를 선택해주세요.'); return; }
+
+            const resultsDiv = document.getElementById('resultsArea');
+            document.body.classList.add('has-results');
+
+            const modeLabel = searchMode === 'full' ? '검색 + AI 답변 생성' : '검색';
+            resultsDiv.innerHTML = `<div class="status-msg"><span class="loading"></span>${modeLabel} 중...${searchMode === 'full' ? '<br><small style="color:#555; margin-top:8px; display:block;">AI 답변 생성에 시간이 걸릴 수 있습니다.</small>' : ''}</div>`;
+
+            // 결과 영역 상단으로 스크롤
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            try {
+                const url = `${RAG_API}/api/search?q=${encodeURIComponent(query)}&db=${encodeURIComponent(selectedDb)}&mode=${searchMode}`;
+                const res = await fetch(url, { signal: searchController.signal });
+                const data = await res.json();
+
+                if (data.error) {
+                    resultsDiv.innerHTML = `<div class="status-msg error-msg">⚠️ ${escapeHtml(data.error)}</div>`;
+                    return;
+                }
+
+                let html = `<div class="results-info">"${escapeHtml(data.query)}" — ${data.database} — ${data.count}건 일치${data.filtered_out ? ` (${data.filtered_out}건 제외, threshold: ${data.threshold})` : ''}</div>`;
+
+                if (data.llm_response) {
+                    html += `
+                        <div class="llm-card">
+                            <div class="llm-card-header">🤖 AI 답변</div>
+                            <div class="llm-card-body">${renderMarkdown(data.llm_response)}</div>
+                        </div>`;
+                }
+
+                if (data.count > 0) {
+                    // 2차 선별 결과 (있으면 먼저 표시)
+                    if (data.step2_results && data.step2_results.length > 0) {
+                        html += `<div class="results-section-title">🎯 2차 선별 결과 (${data.step2_count}건)</div>`;
+                        html += data.step2_results.map(r => `
+                            <div class="result-card" style="border-left: 3px solid #7b2ff7;">
+                                <div class="result-header">
+                                    <span class="result-title">${escapeHtml(r.title)}</span>
+                                    ${r.score !== null ? `<span class="result-score">Score: ${r.score}</span>` : ''}
+                                </div>
+                                <div class="result-content">${escapeHtml(r.content)}</div>
+                            </div>
+                        `).join('');
+                    }
+
+                    // 1차 선별 결과
+                    html += `<div class="results-section-title">📄 1차 선별 결과 (${data.count}건)</div>`;
+                    html += data.results.map(r => `
+                        <div class="result-card">
+                            <div class="result-header">
+                                <span class="result-title">${escapeHtml(r.title)}</span>
+                                ${r.score !== null ? `<span class="result-score">Score: ${r.score}</span>` : ''}
+                            </div>
+                            <div class="result-content">${escapeHtml(r.content)}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    html += '<div class="status-msg">검색 결과가 없습니다.</div>';
+                }
+
+                resultsDiv.innerHTML = html;
+
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    resultsDiv.innerHTML = '<div class="status-msg">🛑 검색이 중지되었습니다.</div>';
+                } else {
+                    resultsDiv.innerHTML = '<div class="status-msg error-msg">⚠️ 서버 연결 실패. 서버가 실행 중인지 확인해주세요.</div>';
+                }
+            }
+            searchController = null;
+        }
+
+        // ── 검색 중지 ──
+        function stopSearch() {
+            if (searchController) {
+                searchController.abort();
+                searchController = null;
+            }
+        }
+
+        // 탭 닫기/이동 시 자동 취소
+        window.addEventListener('beforeunload', stopSearch);
+
+        document.getElementById('searchInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') doSearch();
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function renderMarkdown(text) {
+            if (typeof marked !== 'undefined') {
+                return marked.parse(text);
+            }
+            return escapeHtml(text).replace(/\n/g, '<br>');
+        }
+
+        loadDatabases();
+    </script>
+</body>
+
+</html>
