@@ -6,10 +6,10 @@ echo ============================================
 cd /d "%~dp0"
 
 REM === Set your conda python path here / company ===
-REM set PYTHON_CMD=C:\Users\ADMIN\miniconda3\envs\VisionTest\python.exe
+set PYTHON_CMD=C:\Users\jscho\miniconda3\envs\visiontest\python.exe
 
 REM === Set your conda python path here / home ===
-set PYTHON_CMD=C:\Users\JOYS\miniconda3\envs\vision\python.exe
+REM set PYTHON_CMD=C:\Users\JOYS\miniconda3\envs\vision\python.exe
 
 echo Python: %PYTHON_CMD%
 echo.

@@ -27,6 +27,8 @@ args = parser.parse_args()
 # 전역 변수
 indexes = {}
 cancel_event = threading.Event()
+search_busy = False
+search_query_info = ""
 
 class SearchCancelled(Exception):
     """검색 중지 시 발생하는 예외"""
@@ -198,6 +200,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from starlette.requests import Request as StarletteRequest
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: StarletteRequest, exc: Exception):
+    """미처리 예외 시 search_busy 플래그 안전하게 해제"""
+    global search_busy, search_query_info
+    search_busy = False
+    search_query_info = ""
+    print(f"  [Error] 미처리 예외: {exc}")
+    return JSONResponse(status_code=500, content={"error": f"서버 오류: {str(exc)}"})
+
 
 # 4. API 엔드포인트
 @app.get("/api/health")
@@ -213,9 +226,18 @@ async def list_databases():
 @app.get("/api/stop")
 async def stop_search():
     """진행 중인 LLM 호출을 중지"""
+    global search_busy, search_query_info
     cancel_event.set()
+    search_busy = False
+    search_query_info = ""
     print("  [Stop] 검색 중지 요청 수신")
     return {"status": "stopped"}
+
+
+@app.get("/api/status")
+async def get_status():
+    """현재 검색 진행 상태 반환"""
+    return {"busy": search_busy, "query": search_query_info}
 
 
 @app.get("/api/search")
@@ -226,6 +248,8 @@ def search(
     top_k: int = Query(0, description="0이면 전체 검색"),
     threshold: float = Query(0.5, description="유사도 점수 임계값")
 ):
+    global search_busy, search_query_info
+
     if not q.strip():
         return JSONResponse(status_code=400, content={"error": "검색어를 입력해주세요."})
 
@@ -238,6 +262,10 @@ def search(
             status_code=404,
             content={"error": f"데이터베이스 '{db}'를 찾을 수 없습니다. (사용 가능: {available})"}
         )
+
+    # 검색 중 플래그 설정
+    search_busy = True
+    search_query_info = q
 
     index = indexes[db]
 
@@ -542,6 +570,10 @@ def search(
             print("  [Stop] LLM 처리 중지됨")
         except Exception as e:
             output["llm_response"] = f"LLM 응답 생성 실패: {str(e)}"
+
+    # 검색 완료 플래그 해제
+    search_busy = False
+    search_query_info = ""
 
     return output
 

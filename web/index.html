@@ -423,6 +423,90 @@
             }
         }
 
+        /* ── 대기 팝업 ── */
+        .queue-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .queue-overlay.show {
+            display: flex;
+        }
+
+        .queue-popup {
+            background: #16213e;
+            border: 2px solid #7b2ff7;
+            border-radius: 16px;
+            padding: 32px 40px;
+            text-align: center;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .queue-popup h3 {
+            color: #7b2ff7;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        .queue-popup p {
+            color: #ccc;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .queue-popup .queue-query {
+            color: #00d2ff;
+            font-weight: 600;
+        }
+
+        .queue-popup .queue-btns {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .queue-popup .queue-btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .queue-btn.cancel {
+            background: #333;
+            color: #ccc;
+        }
+
+        .queue-btn.cancel:hover {
+            background: #444;
+        }
+
+        .queue-btn.confirm {
+            background: #7b2ff7;
+            color: white;
+        }
+
+        .queue-btn.confirm:hover {
+            background: #6a1fe0;
+        }
+
+        .queue-popup .queue-status {
+            color: #888;
+            font-size: 13px;
+            margin-top: 12px;
+        }
+
         .footer {
             text-align: center;
             padding: 24px;
@@ -471,6 +555,23 @@
 
     <!-- ── 검색 결과 ── -->
     <div class="results-area" id="resultsArea"></div>
+
+    <!-- ── 대기 팝업 ── -->
+    <div class="queue-overlay" id="queueOverlay">
+        <div class="queue-popup">
+            <h3>⏳ 검색 대기 중</h3>
+            <p>현재 다른 검색이 진행 중입니다.</p>
+            <p>진행 중인 검색: <span class="queue-query" id="queueQuery"></span></p>
+            <div class="queue-status" id="queueStatus"><span class="loading"></span>처리 완료 대기 중...</div>
+            <div class="queue-btns" id="queueBtnsWait">
+                <button class="queue-btn cancel" onclick="cancelQueue()">취소</button>
+            </div>
+            <div class="queue-btns" id="queueBtnsReady" style="display:none;">
+                <button class="queue-btn cancel" onclick="cancelQueue()">취소</button>
+                <button class="queue-btn confirm" onclick="confirmQueue()">검색 실행</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ── 푸터 ── -->
     <div class="footer">ROOTECH Search Engine — Powered by RAG</div>
@@ -535,27 +636,99 @@
             document.getElementById('modeRetrieve').classList.toggle('active', mode === 'retrieve');
         }
 
+        // ── 대기 큐 관련 ──
+        let queuePollTimer = null;
+        let pendingSearch = null;
+
+        function showQueuePopup(busyQuery) {
+            document.getElementById('queueQuery').textContent = busyQuery;
+            document.getElementById('queueStatus').innerHTML = '<span class="loading"></span>처리 완료 대기 중...';
+            document.getElementById('queueBtnsWait').style.display = 'flex';
+            document.getElementById('queueBtnsReady').style.display = 'none';
+            document.getElementById('queueOverlay').classList.add('show');
+        }
+
+        function hideQueuePopup() {
+            document.getElementById('queueOverlay').classList.remove('show');
+            if (queuePollTimer) {
+                clearInterval(queuePollTimer);
+                queuePollTimer = null;
+            }
+        }
+
+        function cancelQueue() {
+            pendingSearch = null;
+            hideQueuePopup();
+        }
+
+        function confirmQueue() {
+            hideQueuePopup();
+            if (pendingSearch) {
+                const params = pendingSearch;
+                pendingSearch = null;
+                executeSearch(params.query, params.db, params.mode);
+            }
+        }
+
+        function startPolling() {
+            queuePollTimer = setInterval(async () => {
+                try {
+                    const res = await fetch(`${RAG_API}/api/status`);
+                    const data = await res.json();
+                    if (!data.busy) {
+                        clearInterval(queuePollTimer);
+                        queuePollTimer = null;
+                        document.getElementById('queueStatus').innerHTML = '✅ 순서가 되었습니다!';
+                        document.getElementById('queueBtnsWait').style.display = 'none';
+                        document.getElementById('queueBtnsReady').style.display = 'flex';
+                    }
+                } catch (e) {
+                    // 서버 연결 실패 시 무시
+                }
+            }, 2000);
+        }
+
         // ── 검색 ──
         async function doSearch() {
-            // 기존 검색 취소
-            if (searchController) searchController.abort();
-            searchController = new AbortController();
-
             const query = document.getElementById('searchInput').value.trim();
             if (!query) { alert('검색어를 입력해주세요.'); return; }
             if (!selectedDb) { alert('데이터베이스를 선택해주세요.'); return; }
 
+            // 서버 상태 확인
+            try {
+                const statusRes = await fetch(`${RAG_API}/api/status`);
+                const status = await statusRes.json();
+
+                if (status.busy) {
+                    // 대기 팝업 표시
+                    pendingSearch = { query, db: selectedDb, mode: searchMode };
+                    showQueuePopup(status.query);
+                    startPolling();
+                    return;
+                }
+            } catch (e) {
+                // 상태 확인 실패 시 그냥 실행
+            }
+
+            executeSearch(query, selectedDb, searchMode);
+        }
+
+        async function executeSearch(query, db, mode) {
+            // 기존 검색 취소
+            if (searchController) searchController.abort();
+            searchController = new AbortController();
+
             const resultsDiv = document.getElementById('resultsArea');
             document.body.classList.add('has-results');
 
-            const modeLabel = searchMode === 'full' ? '검색 + AI 답변 생성' : '검색';
-            resultsDiv.innerHTML = `<div class="status-msg"><span class="loading"></span>${modeLabel} 중...${searchMode === 'full' ? '<br><small style="color:#555; margin-top:8px; display:block;">AI 답변 생성에 시간이 걸릴 수 있습니다.</small>' : ''}</div>`;
+            const modeLabel = mode === 'full' ? '검색 + AI 답변 생성' : '검색';
+            resultsDiv.innerHTML = `<div class="status-msg"><span class="loading"></span>${modeLabel} 중...${mode === 'full' ? '<br><small style="color:#555; margin-top:8px; display:block;">AI 답변 생성에 시간이 걸릴 수 있습니다.</small>' : ''}</div>`;
 
             // 결과 영역 상단으로 스크롤
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
             try {
-                const url = `${RAG_API}/api/search?q=${encodeURIComponent(query)}&db=${encodeURIComponent(selectedDb)}&mode=${searchMode}`;
+                const url = `${RAG_API}/api/search?q=${encodeURIComponent(query)}&db=${encodeURIComponent(db)}&mode=${mode}`;
                 const res = await fetch(url, { signal: searchController.signal });
                 const data = await res.json();
 
