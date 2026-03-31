@@ -427,7 +427,10 @@
         .queue-overlay {
             display: none;
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background: rgba(0, 0, 0, 0.7);
             z-index: 200;
             justify-content: center;
@@ -583,7 +586,7 @@
         let searchController = null;
 
         // RAG API 서버 주소 (Python FastAPI)
-        const RAG_API = 'http://10.10.26.101:5000';
+        const RAG_API = 'http://localhost:5000';
 
         // ── DB 목록 로드 ──
         async function loadDatabases() {
@@ -796,7 +799,7 @@
                 searchController = null;
             }
             // 2. RAG 서버에 LLM 중지 요청
-            fetch(`${RAG_API}/api/stop`).catch(() => {});
+            fetch(`${RAG_API}/api/stop`).catch(() => { });
         }
 
         // 탭 닫기/이동 시 자동 취소

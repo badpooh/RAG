@@ -77,12 +77,12 @@ def call_ollama(prompt, model="qwen3.5:4b"):
     if cancel_event.is_set():
         raise SearchCancelled("검색이 중지되었습니다.")
 
-    resp = http_requests.post("http://10.10.26.101:11434/api/chat", json={
+    resp = http_requests.post("http://127.0.0.1:11434/api/chat", json={
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "think": False,
         "stream": True,
-        "options": {"temperature": 0.0, "seed": 42, "num_ctx": 8192}
+        "options": {"temperature": 0.0, "seed": 42, "num_ctx": 4096}
     }, timeout=300, stream=True)
 
     result = ""
@@ -150,7 +150,7 @@ async def lifespan(app: FastAPI):
     print(f"\n  Total indexes: {len(indexes)}")
     print("=" * 50)
     print(f"  RAG Server ready!")
-    print(f"  API Docs: http://10.10.26.101:{args.port}/docs")
+    print(f"  API Docs: http://localhost:{args.port}/docs")
     print("=" * 50)
 
     yield
@@ -251,10 +251,31 @@ def search(
     print(f"  [Query] 원본: {q} → 정규화: {normalized_q}")
     q = normalized_q
 
+    # full 모드일 때 쿼리 확장 (벡터 검색 전)
+    if mode == "full":
+        expand_prompt = f"""다음 검색어의 동의어, 영어/한글 번역, 약어를 추가하여 확장하세요.
+
+규칙:
+- 원래 검색어를 포함할 것
+- 영어 단어가 있으면 한글 번역 추가, 한글이 있으면 영어 번역 추가
+- 약어가 있으면 풀네임 추가 (예: PF → power factor 역률)
+- 모든 용어는 전기/전력/계전기/보호계전 분야 기준으로 해석할 것
+  (예: OCR → over current relay, 과전류 계전 / CT → current transformer, 변류기)
+- "알려줘", "찾아줘" 같은 명령어는 제외
+- 확장된 키워드만 공백으로 구분하여 한 줄로 출력
+
+검색어: {q}
+확장 결과:"""
+        expanded_q = call_ollama(expand_prompt, args.llm_model).strip().upper()
+        print(f"  [Expand] 원본: {q} → 확장: {expanded_q}")
+        search_q = expanded_q
+    else:
+        search_q = normalized_q
+
     # 벡터 검색
     actual_top_k = top_k if top_k > 0 else len(index.docstore.docs)
     retriever = index.as_retriever(similarity_top_k=actual_top_k)
-    results = retriever.retrieve(normalized_q)
+    results = retriever.retrieve(search_q)
 
     retrieval_results = []
     filtered_count = 0
@@ -304,6 +325,8 @@ def search(
 
     # LLM 답변 (full 모드) — 2단계 추론 ─
     if mode == "full":
+        
+
         try:
             if len(retrieval_results) == 0:
                 output["llm_response"] = "검색 결과가 없어 답변을 생성할 수 없습니다."
@@ -311,7 +334,7 @@ def search(
             elif len(retrieval_results) <= 5:
                 # 5개 이하면 바로 전체 내용으로 답변
                 detail_docs = "\n\n---\n\n".join([
-                    f"[{r['title']}]\n{r.get('full_content', r['content'])}"
+                    f"[{r['title']}] BugUrl: {r.get('bugurl', '-')}\n{r.get('full_content', r['content'])}"
                     for r in retrieval_results
                 ])
 
@@ -334,19 +357,8 @@ def search(
                 output["llm_response"] = call_ollama(prompt, args.llm_model)
 
             else:
-                # 질문 의도 분류 (BUG/VOC/ALL)
-                intent_prompt = f"""다음 질문이 "버그/결함"을 찾는 건지, "테스트/검증"을 찾는 건지, "둘 다"인지 판단하세요.
-반드시 다음 중 하나만 출력: BUG 또는 VOC 또는 ALL
 
-질문: {q}"""
-                intent = call_ollama(intent_prompt, args.llm_model).strip().upper()
-                print(f"  [Intent] {intent}")
-
-                if "BUG" in intent:
-                    retrieval_results = [r for r in retrieval_results if r['title'].upper().startswith('BUG')]
-                elif "VOC" in intent:
-                    retrieval_results = [r for r in retrieval_results if r['title'].upper().startswith('VOC')]
-                # ALL이면 필터 안 함
+                
 
                 # rank 재정렬
                 for i, r in enumerate(retrieval_results):
