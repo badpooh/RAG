@@ -77,12 +77,12 @@ def call_ollama(prompt, model="qwen3.5:4b"):
     if cancel_event.is_set():
         raise SearchCancelled("검색이 중지되었습니다.")
 
-    resp = http_requests.post("http://localhost:11434/api/chat", json={
+    resp = http_requests.post("http://10.10.26.101:11434/api/chat", json={
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "think": False,
         "stream": True,
-        "options": {"temperature": 0.0, "seed": 42, "num_ctx": 4096}
+        "options": {"temperature": 0.0, "seed": 42, "num_ctx": 8192}
     }, timeout=300, stream=True)
 
     result = ""
@@ -150,7 +150,7 @@ async def lifespan(app: FastAPI):
     print(f"\n  Total indexes: {len(indexes)}")
     print("=" * 50)
     print(f"  RAG Server ready!")
-    print(f"  API Docs: http://localhost:{args.port}/docs")
+    print(f"  API Docs: http://10.10.26.101:{args.port}/docs")
     print("=" * 50)
 
     yield
