@@ -36,10 +36,10 @@ class SearchCancelled(Exception):
 # 동의어 사전
 SYNONYMS = {
     # 계측
-    "전압": ["voltage", "V", "volt"],
-    "전류": ["current", "A", "ampere"],
-    "전력": ["power", "W", "watt"],
-    "전력량": ["energy", "Wh", "watt hour"],
+    "전압": ["voltage", "volt"],
+    "전류": ["current", "curr"],
+    "전력": ["power", "watt"],
+    "전력량": ["energy", "Wh", "kwh"],
     "유효전력": ["active power", "P"],
     "유효전력량": ["active energy", "Wh"],
     "무효전력": ["reactive power", "Q", "VAR"],
@@ -48,38 +48,33 @@ SYNONYMS = {
     "역률": ["power factor", "PF", "cos"],
     "주파수": ["frequency", "Hz", "freq"],
     "고조파": ["harmonic", "THD", "total harmonic distortion"],
-    "불평형": ["unbalance", "imbalance"],
-    "역률각": ["phase angle", "위상각", "power angle"],
-    "수요전력": ["demand power", "demand", "디맨드"],
-    "최대수요전력": ["maximum demand", "peak demand", "최대디맨드"],
+    "불평형": ["unbalance"],
+    "수요전력": ["demand power", "demand", "디맨드", "디멘드"],
     "위상": ["phase", "상"],
-    "영상전류": ["zero sequence current", "3I0", "잔류전류"],
+    "영상전류": ["zero sequence current", "I0"],
     "역상전류": ["negative sequence current", "I2"],
     "정상전류": ["positive sequence current", "I1"],
-    "영상전압": ["zero sequence voltage", "3V0", "잔류전압"],
+    "영상전압": ["zero sequence voltage", "V0"],
     "역상전압": ["negative sequence voltage", "V2"],
     "크레스트팩터": ["crest factor", "CF", "파고율"],
     "K팩터": ["K factor", "K-factor"],
 
     # 전력 품질
-    "SAG": ["voltage sag", "전압강하", "순간전압강하", "dip"],
-    "DIP": ["voltage dip", "전압딥", "순간전압저하", "sag"],
-    "SWELL": ["voltage swell", "전압상승", "순간전압상승"],
-    "FLICKER": ["flicker", "플리커", "전압변동"],
-    "INTERRUPTION": ["interruption", "순간정전", "정전", "순시정전"],
+    "DIP": ["딥", "전압강하"],
+    "SWELL": ["스웰", "전압상승"],
 
     # 보호계전 - 과전류
-    "OCR": ["over current relay", "과전류계전기", "과전류 계전기", "OC"],
-    "OCGR": ["over current ground relay", "지락과전류계전기", "지락 과전류"],
-    "NSOCR": ["negative sequence over current relay", "역상과전류계전기", "역상 과전류"],
-    "I2t": ["inverse time", "반한시", "열동형"],
+    "OCR": ["over current relay", "과전류계전"],
+    "OCGR": ["over current ground relay", "지락과전류계전"],
+    "NSOCR": ["negative sequence over current relay", "역상과전류계전", "역상 과전류"],
+    "I2t": ["inverse time", "반한시", "열동형"], #수정필요
 
     # 보호계전 - 전압
-    "OVR": ["over voltage relay", "과전압계전기", "과전압 계전기", "OV"],
-    "UVR": ["under voltage relay", "저전압계전기", "저전압 계전기", "UV"],
-    "OVGR": ["over voltage ground relay", "지락과전압계전기"],
-    "NSOVR": ["negative sequence over voltage relay", "역상과전압계전기", "역상 전압"],
-    "SGR": ["sensitive ground relay", "선택지락계전기", "선택 지락"],
+    "OVR": ["over voltage relay", "과전압계전"],
+    "UVR": ["under voltage relay", "저전압계전"],
+    "OVGR": ["over voltage ground relay", "지락과전압계전"],
+    "NSOVR": ["negative sequence over voltage relay", "역상과전압계전"],
+    "SGR": ["sensitive ground relay", "선택지락계전",],
 
     # 보호계전 - 모터
     "MOTOR": ["motor protection", "모터보호", "전동기보호", "전동기 보호"],
@@ -90,23 +85,12 @@ SYNONYMS = {
     "COLD LOAD PICKUP": ["cold load", "저온부하투입", "냉부하"],
     "INRUSH": ["inrush current", "돌입전류", "여자돌입전류", "inrush current detection"],
 
-    "DGR": ["directional ground relay", "방향지락계전기", "방향성 지락"],
-    "DOCR": ["directional over current relay", "방향과전류계전기", "방향성 과전류"],
-    "UFR": ["under frequency relay", "저주파계전기", "저주파수"],
-    "OFR": ["over frequency relay", "과주파계전기", "과주파수"],
-    "RPR": ["reverse power relay", "역전력계전기", "역전력"],
-    "DIFF": ["differential relay", "차동계전기", "비율차동"],
-    "REF": ["restricted earth fault", "제한접지고장", "한시접지"],
-    "DISTANCE": ["distance relay", "거리계전기", "임피던스계전기"],
-    "RECLOSER": ["recloser", "재폐로", "자동재투입", "auto reclose"],
-    "SYNCHRO CHECK": ["synchro check relay", "동기검정", "동기투입"],
-
     # 차단기/기기
     "CB": ["circuit breaker", "차단기", "breaker"],
     "CT": ["current transformer", "변류기"],
     "PT": ["potential transformer", "계기용변압기"],
     "VT": ["voltage transformer", "계기용변압기"],
-    "UCR": ["under current relay", "저전류계전기", "부족전류"],
+    "UCR": ["under current relay", "저전류계전"],
 
     # 차단기 감시/제어
     "MANUAL CLOSE BLOCKING": ["수동투입금지", "수동 투입 차단", "close blocking"],
@@ -117,29 +101,24 @@ SYNONYMS = {
     "CLOSE COIL SUPERVISION": ["투입코일 감시", "close coil", "CC supervision"],
 
     # 통신/설정
-    "MODBUS": ["modbus", "모드버스", "RTU", "TCP"],
-    "DNP3": ["DNP3", "DNP", "distributed network protocol"],
-    "IEC61850": ["IEC 61850", "GOOSE", "MMS"],
-    "SETTING": ["설정", "설정값", "정정값", "세팅"],
-    "PICKUP": ["pickup", "픽업", "동작값", "동작레벨"],
+    "MODBUS": ["모드버스", "RTU", "TCP", "modbuspoll"],
+    "SETTING": ["설정"],
+    "PICKUP": ["픽업", "동작값", "동작레벨"],
     "DROPOUT": ["dropout", "드롭아웃", "복귀값", "복귀레벨"],
-    "DEADBAND": ["deadband", "데드밴드", "불감대"],
 
     # UI/표시
     "LCD": ["LCD", "디스플레이", "화면", "표시"],
     "LED": ["LED", "표시등", "램프"],
-    "WAVEFORM": ["waveform", "파형", "파형기록", "oscillography"],
-    "SLD": ["single line diagram", "단선도", "계통도"],
-    "MAINTENANCE": ["maintenance", "유지보수", "정비", "메인터넌스"],
+    "WAVEFORM": ["파형", "웨이브폼"],
 
     # 이벤트/상태
     "ALARM": ["알람", "경보", "경고"],
     "RESET": ["리셋", "초기화", "복귀"],
     "FAULT": ["결함", "고장", "이상", "장애"],
     "EVENT": ["이벤트", "이력", "로그", "기록"],
-    "TRIP": ["트립", "차단", "동작"],
-    "CLOSE": ["투입", "닫힘", "on"],
-    "OPEN": ["개방", "열림", "off"],
+    "TRIP": ["트립", "차단"],
+    "CLOSE": ["쇼트", "닫힘", "on"],
+    "OPEN": ["오픈", "열림", "off"],
 }
 
 def expand_query(q):
